@@ -1,4 +1,4 @@
-M = {}
+local M = {}
 
 M.is_test_file = function(path)
     if not path then return false end

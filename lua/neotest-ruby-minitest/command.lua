@@ -35,12 +35,6 @@ function M.build(conf, args)
         table.insert(command, "-e")
         table.insert(command, "ARGV.each { |f| require File.expand_path(f) }")
         table.insert(command, "--")
-        -- local function is_test_file(p)
-        --     if type(p) ~= "string" then return false end
-        --     p = p:gsub("\\", "/")
-        --     if not p:match("%.rb$") then return false end
-        --     return p:match("_test%.rb$") ~= nil or p:match("test_.+%.rb$") ~= nil
-        -- end
         for _, node in args.tree:iter_nodes() do
             local data = node:data()
             if data and data.type == "file" then
