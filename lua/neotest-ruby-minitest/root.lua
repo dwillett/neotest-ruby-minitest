@@ -10,20 +10,17 @@ end
 
 function M.root(dir)
   local ruby_root = lib.files.match_root_pattern(
-    -- Bundler / Ruby
-    "Gemfile", "gems.rb", ".ruby-version", ".tool-versions",
-    -- Build / tasks
+    "Gemfile",
+    "gems.rb",
+    ".ruby-version",
+    ".tool-versions",
     "Rakefile",
-    -- Rails-style Minitest layout
     "test/test_helper.rb",
-    -- VCS (kept last so we prefer a nearer Gemfile over repo root)
     ".git"
   )(dir)
-
   if ruby_root then
     return ruby_root
   end
-
   local current = dir
   while current do
     if has_minitest_layout(current) then
@@ -33,7 +30,6 @@ function M.root(dir)
     if not parent or parent == current then break end
     current = parent
   end
-
   return nil
 end
 

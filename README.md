@@ -4,8 +4,6 @@ A [minitest](https://docs.seattlerb.org/minitest/) adapter for [Neotest](https:/
 
 ## Installation
 
-Install using the package manager of your choice:
-
 **Lazy**
 
 ```lua
@@ -35,37 +33,32 @@ Install using the package manager of your choice:
 adapters = {
   require("neotest-minitest")({
     command = function()
-      return vim.tbl_flatten({
-        "bundle",
-        "exec",
-        "ruby",
-        "-Itest",
-      })
-    end,
+      return "bundle exec ruby -Itest" 
+    end
   }),
 }
 ```
 
-You only need to add this configuration if you want to override the defaults. For example:
+Usually, you don't need to modify the default configuration. However, if required, you can change 
+the default command:
 
 ```lua
-require("neotest-minitest")({
-  test_cmd = function()
-    return vim.tbl_flatten({
-      "bundle",
-      "exec",
-      "rake",
-      "test",
-    })
-  end
-})
+adapters = {
+  require("neotest-minitest")({
+    command = function()
+      return "ruby"
+    end
+  })
+}
 ```
 
 ## How to Contribute
 
-Fork the repository, make changes, and send a pull request. We will review your changes and merge them into the `main` branch if they meet our quality standards. 
-To avoid delays, please ensure the full build passes before submitting your pull request:
+Fork the repository, make changes, and submit a pull request. We will review your changes and merge them into the `main` branch if they meet our quality standards. 
+To avoid delays, please ensure that the entire build passes before submitting your pull request:
 
 ```bash
-todo
+make test
+make lint
 ```
+

@@ -53,7 +53,7 @@ function M.build(conf, args)
     local inject = "-r" .. plugin_rb
     env.RUBYOPT = (prev ~= "" and (prev .. " " .. inject)) or inject
     local dir = M.state_dir()
-    local file = M.uuid() .. ".json"
+    local file = util.uuid() .. ".json"
     local json_path = dir .. "/" .. file
     env.MINITEST_JSON_FILE = env.MINITEST_JSON_FILE or json_path
     return {
@@ -64,17 +64,6 @@ function M.build(conf, args)
             plugin_rb = plugin_rb,
         }
     }
-end
-
---- Generate a random RFC-4122-like UUID v4 string.
---- Note: this is not cryptographically secure; it’s sufficient for temp file names.
----@return string uuid
-function M.uuid()
-    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
-        return string.format('%x', v)
-    end)
 end
 
 --- Locate the Ruby plugin on `runtimepath`.

@@ -1,6 +1,5 @@
 local lib = require("neotest.lib")
 
-
 local M = {}
 
 local QUERY = [[
