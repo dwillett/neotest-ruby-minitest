@@ -2,13 +2,23 @@ local positions = require("neotest-ruby-minitest.positions")
 local async = require("nio.tests")
 
 describe("Discover Positions", function()
+    local is_win = package.config:sub(1, 1) == '\\'     -- fastest, reliable
+    local function norm(p) return vim.fs.normalize(p) end
+    local function base(p) return vim.fs.basename(p) end
+    local function file_display_name(path)
+        -- This is a hack to make the test work on both Windows and Unix-like systems
+        -- On Windows, neotest.lib.treesitter.parse_positions returns full paths
+        -- on Unix-like systems, it returns just the filename
+        return is_win and norm(path) or base(path)
+    end
+
     async.it("should discover the position of the classic minitest from the 'factbase' project", function()
         local test_path = vim.fs.joinpath(vim.loop.cwd(), "tests", "examples", "test_factbase.rb")
         local actual = positions.discover_positions(test_path):to_list()
         local expected = {
             {
                 id = test_path,
-                name = "test_factbase.rb",
+                name = file_display_name(test_path),
                 path = test_path,
                 range = { 0, 0, 65, 0 },
                 type = "file",
@@ -69,7 +79,7 @@ describe("Discover Positions", function()
         local expected = {
             {
                 id = test_path,
-                name = "test_classic.rb",
+                name = file_display_name(test_path),
                 path = test_path,
                 range = { 0, 0, 10, 0 },
                 type = "file",
