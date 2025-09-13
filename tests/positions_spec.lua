@@ -3,8 +3,7 @@ local async = require("nio.tests")
 
 describe("Discover Positions", function()
     async.it("should discover the position of the classic minitest from the 'factbase' project", function()
-        local test = "/tests/examples/test_factbase.rb"
-        local test_path = vim.loop.cwd() .. test
+        local test_path = vim.fs.joinpath(vim.loop.cwd(), "tests", "examples", "test_factbase.rb")
         local actual = positions.discover_positions(test_path):to_list()
         local expected = {
             {
@@ -65,8 +64,7 @@ describe("Discover Positions", function()
     end)
 
     async.it("should discover correct positions in the classic example", function()
-        local test = "/tests/examples/test_classic.rb"
-        local test_path = vim.loop.cwd() .. test
+        local test_path = vim.fs.joinpath(vim.loop.cwd(), "tests", "examples", "test_classic.rb")
         local actual = positions.discover_positions(test_path):to_list()
         local expected = {
             {
@@ -96,8 +94,7 @@ describe("Discover Positions", function()
             },
         }
         assert.are.same(expected, actual)
-    end
-    )
+    end)
 end)
 
 describe("Environment sanity", function()
