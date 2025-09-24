@@ -1,5 +1,45 @@
 local positions = require("neotest-ruby-minitest.positions")
 local async = require("nio.tests")
+local utils = require("tests.commons")
+
+describe("positions.discover_positions", function()
+   local function find(all, type)
+        for _, child in all:iter_nodes() do
+            if child:data().type == type then
+                return child:data()
+            end
+        end
+        error("No " .. type .. " found")
+    end
+
+    -- Helper function to find the first namespace position
+    ---@param all neotest.Tree
+    ---@return any
+    local function namespece(all)
+        return find(all, "namespace")
+    end
+
+    -- Helper function to find the first test position
+    ---@param all neotest.Tree
+    ---@return any
+    local function test(all)
+        return find(all, "test")
+    end
+
+    -- Helper function to find the first file position
+    ---@param all neotest.Tree
+    ---@return any
+    local function file(all)
+        return find(all, "file")
+    end
+
+    async.it("discovers all tests in a plain ruby test", function()
+        local pos = positions.discover_positions(utils.resource("examples", "superclasses", "plain_test.rb"):absolute())
+        assert.are.same("test_truth", test(pos).name)
+        assert.are.same("UserTest", namespece(pos).name)
+        assert.are.same("plain_test.rb", file(pos).name)
+    end)
+end)
 
 describe("Discover Positions", function()
     local is_win = package.config:sub(1, 1) == '\\'
@@ -13,7 +53,7 @@ describe("Discover Positions", function()
     end
 
     async.it("should discover the position of the classic minitest from the 'factbase' project", function()
-        local test_path = vim.fs.joinpath(vim.loop.cwd(), "tests", "examples", "test_factbase.rb")
+        local test_path = utils.resource("examples", "test_factbase.rb"):absolute()
         local actual = positions.discover_positions(test_path):to_list()
         local expected = {
             {
@@ -74,7 +114,7 @@ describe("Discover Positions", function()
     end)
 
     async.it("should discover correct positions in the classic example", function()
-        local test_path = vim.fs.joinpath(vim.loop.cwd(), "tests", "examples", "test_classic.rb")
+        local test_path = utils.resource("examples", "test_classic.rb"):absolute()
         local actual = positions.discover_positions(test_path):to_list()
         local expected = {
             {

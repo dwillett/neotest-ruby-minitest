@@ -7,7 +7,10 @@ M.is_test_file = function(path)
     if type(path) ~= "string" then return false end
     if not path:match("%.rb$") then return false end
     local fname = vim.fs.basename(path)
-    return fname:match(".+_test%.rb$") ~= nil or fname:match("test_.+%.rb$") ~= nil
+    local test =  fname:match(".+_test%.rb$") ~= nil or fname:match("test_.+%.rb$") ~= nil
+    local spec =  fname:match(".+_spec%.rb$") ~= nil or fname:match("spec_.+%.rb$") ~= nil
+    local check =  fname:match(".+_check%.rb$") ~= nil or fname:match("check_.+%.rb$") ~= nil
+    return test or spec or check
 end
 
 --- Generate a random RFC-4122-like UUID v4 string.

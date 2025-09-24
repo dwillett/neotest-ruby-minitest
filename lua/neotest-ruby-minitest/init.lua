@@ -48,7 +48,12 @@ local function build_adapter(cfg)
     ---@param args neotest.RunArgs
     ---@return nil | neotest.RunSpec | neotest.RunSpec[]
     function adapter.build_spec(args)
-        return require("neotest-ruby-minitest.command").build(cfg, args)
+        local spec = require("neotest-ruby-minitest.command").build(cfg, args)
+        if not spec then
+            logger.debug("built command: " .. spec.command)
+            error("neotest-ruby-minitest: could not build command")
+        end
+        return spec
     end
 
     ---@async

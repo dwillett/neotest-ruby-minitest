@@ -4,7 +4,11 @@ local M = {}
 ---@field command "string" Command to run the tests. Should be a string.
 
 M.defaults = {
-    command = "bundle exec ruby -Itest",
+    -- Default command to run the tests
+    -- You can override this with a custom command
+    -- For example:
+    -- command = "bundle exec ruby -Itest"
+    command = "ruby -Itest",
 }
 
 function M.resolve(opts)

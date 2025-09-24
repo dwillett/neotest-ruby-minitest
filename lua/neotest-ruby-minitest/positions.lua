@@ -14,9 +14,12 @@ local QUERY = [[
     ) @test.definition
 ]]
 
+-- Parses the given file and returns a tree of positions.
+---@param file_path string
+---@return neotest.Tree
 M.discover_positions = function(file_path)
     if not vim.loop.fs_stat(file_path) then
-        error("File does not exist: " .. file_path)
+        error("file does not exist: " .. file_path)
     end
     local res = lib.treesitter.parse_positions(file_path, QUERY, {
         nested_tests = true,

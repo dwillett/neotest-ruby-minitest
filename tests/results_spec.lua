@@ -1,41 +1,9 @@
 local results = require("neotest-ruby-minitest.results")
 local path = require("plenary.path")
 local async = require("nio.tests")
+local utils = require("tests.commons")
 
 local OUT_STUB = { output = "/dev/null/raw.txt" }
-
--- Helper to create and clean up a temporary directory
--- for testing.
-local function with_temp_dir(run)
-    local base = vim.uv.os_tmpdir()
-    local dir = vim.uv.fs_mkdtemp(base .. "/neotest-ruby-minitest-XXXXXX")
-    local ok, err = pcall(run, dir)
-    if dir then
-        path:new(dir):rm({ recursive = true })
-    end
-    assert(ok, err)
-end
-
--- Get a resource path relative to this file.
---@return plenary.Path
-local function resource(...)
-    local src = debug.getinfo(1, "S").source
-    if src:sub(1, 1) == "@" then src = src:sub(2) end
-    local spec = path:new(src):parent()
-    for _, p in ipairs({ ... }) do
-        spec = spec:joinpath(p)
-    end
-    return spec
-end
-
--- Copy a file from one path to another, overwriting if necessary.
--- Raises an error if the copy fails.
-local function copy(from, to)
-    local ok, err = pcall(function()
-        from:copy({ destination = to, overwrite = true })
-    end)
-    assert(ok, err)
-end
 
 local function params(json_path)
     return { context = { json_path = json_path } }, OUT_STUB, nil
@@ -49,7 +17,7 @@ describe("results.parse", function()
     end)
 
     async.it("can't parse empty json", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
             local res = results.parse(params(json_path))
             assert.are_same({}, res)
@@ -57,7 +25,7 @@ describe("results.parse", function()
     end)
 
     async.it("can't parse ivalid json", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
             local content = "{ invalid json }"
             local file = io.open(json_path, "w")
@@ -70,22 +38,22 @@ describe("results.parse", function()
     end)
 
     async.it("parses valid json output", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "test_out.json")
+            local from = utils.resource("json", "test_out.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local res = results.parse(params(json_path))
             assert.are_equal(63, vim.tbl_count(res))
         end)
     end)
 
     async.it("parses successful json output", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "successful.json")
+            local from = utils.resource("json", "successful.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local res = results.parse(params(json_path))
             assert.are_equal(1, vim.tbl_count(res))
             local _, single = next(res)
@@ -99,11 +67,11 @@ describe("results.parse", function()
     end)
 
     async.it("parses failed json output", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource():joinpath("json"):joinpath("failure.json")
+            local from = utils.resource("json", "failure.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local res = results.parse(params(json_path))
             assert.are_equal(1, vim.tbl_count(res))
             local _, test = next(res)
@@ -120,11 +88,11 @@ describe("results.parse", function()
     end)
 
     async.it("parses skipped json output", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "skipped.json")
+            local from = utils.resource("json", "skipped.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local res = results.parse(params(json_path))
             assert.are_equal(1, vim.tbl_count(res))
             local _, test = next(res)
@@ -137,22 +105,22 @@ describe("results.parse", function()
     end)
 
     async.it("removes the output file on parse by default", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "successful.json")
+            local from = utils.resource("json", "successful.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             results.parse(params(json_path))
             assert.is_false(path:new(json_path):exists())
         end)
     end)
 
     async.it("keeps the output file on parse", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "successful.json")
+            local from = utils.resource("json", "successful.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local module = require("neotest-ruby-minitest.results")
             module.keep_output = true
             module.parse(params(json_path))
@@ -161,11 +129,11 @@ describe("results.parse", function()
     end)
 
     async.it("sets the correct id", function()
-        with_temp_dir(function(dir)
+        utils.with_temp_dir(function(dir)
             local json_path = dir .. "/results.json"
-            local from = resource("json", "successful.json")
+            local from = utils.resource("json", "successful.json")
             local to = path:new(json_path)
-            copy(from, to)
+            utils.copy(from, to)
             local res = results.parse(params(json_path))
             assert.are_equal(1, vim.tbl_count(res))
             local id, _ = next(res)

@@ -33,7 +33,7 @@ A [minitest](https://docs.seattlerb.org/minitest/) adapter for [Neotest](https:/
 adapters = {
   require("neotest-minitest")({
     command = function()
-      return "bundle exec ruby -Itest" 
+      return "ruby -Itest" 
     end
   }),
 }
@@ -46,7 +46,7 @@ the default command:
 adapters = {
   require("neotest-minitest")({
     command = function()
-      return "ruby"
+      return "bundle exec ruby -Itest"
     end
   })
 }

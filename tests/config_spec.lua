@@ -5,7 +5,7 @@ describe("config", function()
     async.it("should have default command", function()
         local conf = config.resolve()
         assert.is_string(conf.command)
-        assert.are.same(conf.command, "bundle exec ruby -Itest")
+        assert.are.same(conf.command, "ruby -Itest")
     end)
     async.it("should override default command", function()
         local custom_command = "custom command"
