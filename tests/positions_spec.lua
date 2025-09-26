@@ -3,7 +3,7 @@ local async = require("nio.tests")
 local utils = require("tests.commons")
 
 describe("positions.discover_positions", function()
-   local function find(all, type)
+    local function find(all, type)
         for _, child in all:iter_nodes() do
             if child:data().type == type then
                 return child:data()
@@ -33,11 +33,25 @@ describe("positions.discover_positions", function()
         return find(all, "file")
     end
 
+    -- Helper function to get the absolute path of a minitest example file
+    ---@param name string
+    ---@return string
+    local function minitest(name)
+        return utils.resource("examples", "superclasses", name):absolute()
+    end
+
     async.it("discovers all tests in a plain ruby test", function()
-        local pos = positions.discover_positions(utils.resource("examples", "superclasses", "plain_test.rb"):absolute())
-        assert.are.same("test_truth", test(pos).name)
-        assert.are.same("UserTest", namespece(pos).name)
+        local pos = positions.discover_positions(minitest("plain_test.rb"))
         assert.are.same("plain_test.rb", file(pos).name)
+        assert.are.same("UserTest", namespece(pos).name)
+        assert.are.same("test_truth", test(pos).name)
+    end)
+
+    async.it("discovers all tests in a bare minitest example", function()
+        local pos = positions.discover_positions(minitest("bare_test.rb"))
+        assert.are.same("bare_test.rb", file(pos).name)
+        assert.are.same("Bare", namespece(pos).name)
+        assert.are.same("test_custom", test(pos).name)
     end)
 end)
 
