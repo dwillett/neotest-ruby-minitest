@@ -55,6 +55,55 @@ local function bare(file)
   })
 end
 
+local rails_query = [[
+(class
+  name: (constant) @namespace.name
+  (superclass
+    (scope_resolution
+      name: (constant) @superclass.name (#any-of? @superclass.name "SystemTestCase" "TestCase" "IntegrationTest"))
+    )
+  ) @namespace.definition
+
+(class
+  name: (constant) @namespace.name
+  (superclass
+    (constant) @superclass.name (#match? @superclass.name "Test")
+    )
+  ) @namespace.definition
+
+(class
+  name: (scope_resolution) @namespace.name
+  (superclass
+    (constant) @superclass.name (#match? @superclass.name "Test")
+    )
+  ) @namespace.definition
+
+(class
+  name: (scope_resolution) @namespace.name
+  (superclass
+    (scope_resolution
+      name: (constant) @superclass.name (#any-of? @superclass.name "SystemTestCase" "TestCase" "IntegrationTest"))
+    )
+  ) @namespace.definition
+
+(call
+  method: (identifier) @fname (#match? @fname "test")
+  arguments: (argument_list
+               (string ( string_content ) @test.name))
+  ) @test.definition
+]]
+
+-- Parses the given file with the rails query.
+---@param file string
+---@return neotest.Tree
+local function rails(file)
+  return lib.treesitter.parse_positions(file, rails_query, {
+    nested_tests = true,
+    require_namespaces = true,
+    position_id = nil,
+  })
+end
+
 ---@param tree neotest.Tree
 ---@return integer
 local function count_nodes(tree)
@@ -80,13 +129,21 @@ M.discover_positions = function(file_path)
   if not vim.loop.fs_stat(file_path) then
     error("file does not exist: " .. file_path)
   end
-  local b = bare(file_path)
-  local p = plain(file_path)
-  if count_nodes(b) > count_nodes(p) then
-    return b
-  else
-    return p
+  local nodes = {
+    bare(file_path),
+    plain(file_path),
+    rails(file_path),
+  }
+  local best
+  local nbest = -1
+  for _, value in ipairs(nodes) do
+    local cnodes = count_nodes(value)
+    if nbest < cnodes then
+      nbest = cnodes
+      best = value
+    end
   end
+  return best
 end
 
 return M
