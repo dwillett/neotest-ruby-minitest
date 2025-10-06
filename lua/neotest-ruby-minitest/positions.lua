@@ -2,6 +2,18 @@ local lib = require("neotest.lib")
 
 local M = {}
 
+-- Parses the given file with an arbitrary query.
+---@param file string
+---@param query string
+---@return neotest.Tree
+local function parse_positions(file, query)
+  return lib.treesitter.parse_positions(file, query, {
+    nested_tests = true,
+    require_namespaces = true,
+    position_id = "",
+  })
+end
+
 local plain_query = [[
     (
       class
@@ -18,13 +30,8 @@ local plain_query = [[
 ---@param file string
 ---@return neotest.Tree
 local function plain(file)
-  return lib.treesitter.parse_positions(file, plain_query, {
-    nested_tests = true,
-    require_namespaces = true,
-    position_id = nil,
-  })
+  return parse_positions(file, plain_query)
 end
-
 
 local bare_query = [[
     (
@@ -48,11 +55,7 @@ local bare_query = [[
 ---@param file string
 ---@return neotest.Tree
 local function bare(file)
-  return lib.treesitter.parse_positions(file, bare_query, {
-    nested_tests = true,
-    require_namespaces = true,
-    position_id = nil,
-  })
+  return parse_positions(file, bare_query)
 end
 
 local rails_query = [[
@@ -97,11 +100,7 @@ local rails_query = [[
 ---@param file string
 ---@return neotest.Tree
 local function rails(file)
-  return lib.treesitter.parse_positions(file, rails_query, {
-    nested_tests = true,
-    require_namespaces = true,
-    position_id = nil,
-  })
+  return parse_positions(file, rails_query)
 end
 
 ---@param tree neotest.Tree
