@@ -175,13 +175,72 @@ describe("results.parse", function()
       }
 
       local spec = { context = { json_path = json_path } }
-      local result = { output = "/dev/null/raw.txt" }
-      local res = results.parse(spec, result, mock_tree)
+      local result_stub = { output = "/dev/null/raw.txt" }
+      local res = results.parse(spec, result_stub, mock_tree)
 
       assert.are_equal(1, vim.tbl_count(res))
       local id, _ = next(res)
       -- The ID should now be the absolute path from the tree, not the relative path from JSON
       assert.are_equal(expected_id, id)
+    end)
+  end)
+
+  async.it("normalizes module-prefixed class names and test_ prefixed method names", function()
+    utils.with_temp_dir(function(dir)
+      local json_path = dir .. "/results.json"
+      -- Write a JSON file that mimics what Ruby outputs for Rails-style tests
+      local json_content = [[{
+        "summary": {"total": 1, "assertions": 1, "failures": 0, "errors": 0, "skips": 0, "duration": 0.01},
+        "tests": [{
+          "file": "/path/to/my_test.rb",
+          "line": 10,
+          "class": "MyModule::MyTestClass",
+          "name": "test_#my_method_does_something",
+          "time": 0.001,
+          "assertions": 1,
+          "failures": [],
+          "skipped": false,
+          "error": false
+        }]
+      }]]
+      local file = io.open(json_path, "w")
+      assert(file, "could not open file for writing: " .. json_path)
+      file:write(json_content)
+      file:close()
+
+      -- Create a mock tree with the neotest-style ID (no module prefix, spaces in test name)
+      local expected_id = "/absolute/path/to/my_test.rb::MyTestClass::#my method does something"
+      local mock_tree = {
+        iter_nodes = function()
+          local nodes = {
+            {
+              data = function()
+                return {
+                  type = "test",
+                  id = expected_id,
+                }
+              end
+            }
+          }
+          local i = 0
+          return function()
+            i = i + 1
+            if nodes[i] then
+              return i, nodes[i]
+            end
+          end
+        end
+      }
+
+      local spec = { context = { json_path = json_path } }
+      local result_stub = { output = "/dev/null/raw.txt" }
+      local res = results.parse(spec, result_stub, mock_tree)
+
+      assert.are_equal(1, vim.tbl_count(res))
+      local id, test_result = next(res)
+      -- The ID should be the neotest ID, matched via normalization
+      assert.are_equal(expected_id, id)
+      assert.are_equal("passed", test_result.status)
     end)
   end)
 end)

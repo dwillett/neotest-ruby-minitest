@@ -8,6 +8,37 @@ local M = {}
 function M.build(conf, args)
   local location = args.tree:data()
   local test_path = location.path
+  local function dap_strategy(command)
+    local port = math.random(49152, 65535)
+    port = conf.port or port
+
+    local rdbg_args = {
+      "-O",
+      "--port",
+      port,
+      "-c",
+      "-e",
+      "cont",
+      "--",
+    }
+
+    for i = 1, #command do
+      rdbg_args[#rdbg_args + 1] = command[i]
+    end
+
+    return {
+      name = "Neotest Debugger",
+      type = "ruby",
+      bundle = "bundle",
+      localfs = true,
+      request = "attach",
+      args = rdbg_args,
+      command = "rdbg",
+      cwd = "${workspaceFolder}",
+      port = port,
+    }
+  end
+
   if not lib.files.exists(test_path) then
     error("neotest-ruby-minitest: file does not exist: " .. test_path)
   end
@@ -56,14 +87,18 @@ function M.build(conf, args)
   local file = util.uuid() .. ".json"
   local json_path = dir .. "/" .. file
   env.MINITEST_JSON_FILE = env.MINITEST_JSON_FILE or json_path
-  return {
+  local spec = {
     command = command,
     env = env,
     context = {
       json_path = json_path,
       plugin_rb = plugin_rb,
-    }
+    },
   }
+  if args.strategy == "dap" then
+    spec.strategy = dap_strategy(command)
+  end
+  return spec
 end
 
 --- Locate the Ruby plugin on `runtimepath`.

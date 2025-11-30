@@ -3,6 +3,7 @@ local M = {}
 ---@class config.Config
 ---@field command string Command to run the tests. Should be a string.
 ---@field env table<string, string>|nil Environment variables to set when running tests.
+---@field port number|nil Environment variables to set when running tests.
 
 M.defaults = {
   -- Default command to run the tests
@@ -15,6 +16,8 @@ M.defaults = {
   -- For example:
   -- env = { RAILS_ENV = "test", VERBOSE = "1" }
   env = {},
+  -- Fixed port for debug strategy
+  port = nil,
 }
 
 function M.resolve(opts)

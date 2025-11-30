@@ -14,14 +14,11 @@ M.keep_output = false
 ---@return table<string, neotest.Result>
 M.parse = function(spec, result, tree)
   local path = spec.context.json_path
-  logger.info("results.parse: reading JSON from " .. tostring(path))
-
   local success, output = pcall(lib.files.read, path)
   if not success then
     logger.error("neotest-ruby-minitest: could not read output: " .. output)
     return {}
   end
-  logger.debug("results.parse: JSON content length = " .. #output)
 
   if not M.keep_output then
     local err
@@ -41,15 +38,25 @@ M.parse = function(spec, result, tree)
   end
 
   local function classify_status(t)
-    if t.skipped then return "skipped" end
-    if t.error then return "failed" end
-    if t.failures and #t.failures > 0 then return "failed" end
+    if t.skipped then
+      return "skipped"
+    end
+    if t.error then
+      return "failed"
+    end
+    if t.failures and #t.failures > 0 then
+      return "failed"
+    end
     return "passed"
   end
 
   local function failure_message(t)
-    if t.error then return "error" end
-    if not (t.failures and #t.failures > 0) then return "" end
+    if t.error then
+      return "error"
+    end
+    if not (t.failures and #t.failures > 0) then
+      return ""
+    end
     local parts = {}
     for _, f in ipairs(t.failures) do
       local head = (f.type or "failure")
@@ -62,37 +69,75 @@ M.parse = function(spec, result, tree)
     return table.concat(parts, "\n\n")
   end
 
-  -- Build a lookup table from (basename::class::name) -> neotest position ID
+  -- Normalize a test name for lookup matching
+  -- Converts spaces to underscores and removes test_ prefix to match Ruby's method naming
+  -- e.g., "#process handles errors" -> "#process_handles_errors"
+  -- e.g., "test_my_method" -> "my_method"
+  -- We normalize spaces->underscores (not the reverse) because original underscores
+  -- in test names like ".error_mappings should exist" must be preserved
+  local function normalize_test_name(name)
+    if not name then
+      return ""
+    end
+    local normalized = name
+    -- Remove test_ prefix if present
+    normalized = normalized:gsub("^test_", "")
+    -- Replace spaces with underscores (to match Ruby's conversion of test "name" blocks)
+    normalized = normalized:gsub(" ", "_")
+    return normalized
+  end
+
+  -- Extract just the class name without module prefix
+  -- "AdyenPaymentsExtensions::RefundSessionProcessorTest" -> "RefundSessionProcessorTest"
+  local function normalize_class_name(class)
+    if not class then
+      return ""
+    end
+    -- Get the last part after ::
+    return class:match("([^:]+)$") or class
+  end
+
+  -- Build a lookup table from normalized (basename::class::name) -> neotest position ID
   -- This handles the case where Ruby's source_location returns a different path
   -- than what Neotest uses (e.g., relative vs absolute paths)
   local id_lookup = {}
-  logger.info("results.parse: tree provided = " .. tostring(tree ~= nil))
   if tree then
-    local node_count = 0
     for _, node in tree:iter_nodes() do
       local data = node:data()
-      node_count = node_count + 1
       if data and data.type == "test" and data.id then
-        -- Extract class and test name from the neotest ID
+        -- Extract file path, class(es), and test name from the neotest ID
         -- Format: /path/to/file.rb::ClassName::test_name
-        local file_path, class_name, test_name = data.id:match("^(.+)::([^:]+)::([^:]+)$")
-        if file_path and class_name and test_name then
-          local basename = vim.fs.basename(file_path)
-          local key = basename .. "::" .. class_name .. "::" .. test_name
-          id_lookup[key] = data.id
-          logger.debug("results.parse: registered lookup key: " .. key .. " -> " .. data.id)
-        else
-          logger.debug("results.parse: could not parse neotest ID: " .. tostring(data.id))
+        -- Or with nested classes: /path/to/file.rb::OuterClass::InnerClass::test_name
+        -- Anchor on .rb to correctly split file path from the rest
+        local file_path, rest = data.id:match("^(.+%.rb)::(.+)$")
+        if file_path and rest then
+          -- rest is "ClassName::test_name" or "Outer::Inner::test_name"
+          -- Find the last :: to separate class part from test name
+          local last_sep_pos = nil
+          local pos = 1
+          while true do
+            local found = rest:find("::", pos, true)
+            if not found then break end
+            last_sep_pos = found
+            pos = found + 2
+          end
+          if last_sep_pos then
+            local class_part = rest:sub(1, last_sep_pos - 1)
+            local test_name = rest:sub(last_sep_pos + 2)
+            local basename = vim.fs.basename(file_path)
+            local normalized_test = normalize_test_name(test_name)
+            -- Extract just the innermost class name for matching
+            local innermost_class = normalize_class_name(class_part)
+            local key = basename .. "::" .. innermost_class .. "::" .. normalized_test
+            id_lookup[key] = data.id
+          end
         end
       end
     end
-    logger.info("results.parse: processed " .. node_count .. " tree nodes, " .. vim.tbl_count(id_lookup) .. " test lookups")
   end
 
   local results = {}
   local tests = payload.tests or {}
-  logger.info("results.parse: processing " .. #tests .. " test results from JSON")
-
   for _, t in ipairs(tests) do
     -- Build the raw ID from JSON data
     local raw_id = t.file .. "::" .. t.class .. "::" .. t.name
@@ -100,39 +145,37 @@ M.parse = function(spec, result, tree)
       vim.notify("neotest-ruby-minitest: test without id", vim.log.levels.WARN)
       return {}
     end
-    logger.debug("results.parse: raw_id from JSON = " .. raw_id)
 
-    -- Try to match against neotest position IDs using basename
+    -- Try to match against neotest position IDs using normalized basename, class, and test name
     local id = raw_id
     if t.file and t.class and t.name then
       local basename = vim.fs.basename(t.file)
-      local lookup_key = basename .. "::" .. t.class .. "::" .. t.name
-      logger.debug("results.parse: lookup_key = " .. lookup_key)
+      local normalized_class = normalize_class_name(t.class)
+      local normalized_test = normalize_test_name(t.name)
+      local lookup_key = basename .. "::" .. normalized_class .. "::" .. normalized_test
       if id_lookup[lookup_key] then
         id = id_lookup[lookup_key]
-        logger.debug("results.parse: MATCHED! using neotest ID = " .. id)
       else
-        logger.debug("results.parse: NO MATCH, using raw_id")
+        logger.warn("neotest-ruby-minitest: did not match " .. lookup_key)
+        logger.warn("neotest-ruby-minitest: " .. vim.inspect(id_lookup))
       end
     end
 
     local status = classify_status(t)
-    logger.info("results.parse: test " .. t.name .. " status = " .. status .. ", id = " .. id)
 
     local long_msg = failure_message(t)
     local short_msg = (#long_msg > 0) and long_msg:sub(1, 200) or ""
 
     results[id] = {
-      status = status,              -- "passed" | "failed" | "skipped"
-      short = short_msg,            -- brief summary
-      output = result.output,       -- path to the raw output (for quick open)
+      status = status, -- "passed" | "failed" | "skipped"
+      short = short_msg, -- brief summary
+      output = result.output, -- path to the raw output (for quick open)
       location = (t.file and t.line) and (t.file .. ":" .. t.line) or nil,
       duration = t.time or 0,
-      errors = t.failures,       -- optional; neotest will show details via output too
+      errors = t.failures, -- optional; neotest will show details via output too
     }
   end
 
-  logger.info("results.parse: returning " .. vim.tbl_count(results) .. " results")
   return results
 end
 
