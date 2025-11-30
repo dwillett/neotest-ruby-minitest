@@ -14,11 +14,14 @@ M.keep_output = false
 ---@return table<string, neotest.Result>
 M.parse = function(spec, result, tree)
   local path = spec.context.json_path
+  logger.info("results.parse: reading JSON from " .. tostring(path))
+
   local success, output = pcall(lib.files.read, path)
   if not success then
     logger.error("neotest-ruby-minitest: could not read output: " .. output)
     return {}
   end
+  logger.debug("results.parse: JSON content length = " .. #output)
 
   if not M.keep_output then
     local err
@@ -63,9 +66,12 @@ M.parse = function(spec, result, tree)
   -- This handles the case where Ruby's source_location returns a different path
   -- than what Neotest uses (e.g., relative vs absolute paths)
   local id_lookup = {}
+  logger.info("results.parse: tree provided = " .. tostring(tree ~= nil))
   if tree then
+    local node_count = 0
     for _, node in tree:iter_nodes() do
       local data = node:data()
+      node_count = node_count + 1
       if data and data.type == "test" and data.id then
         -- Extract class and test name from the neotest ID
         -- Format: /path/to/file.rb::ClassName::test_name
@@ -74,13 +80,19 @@ M.parse = function(spec, result, tree)
           local basename = vim.fs.basename(file_path)
           local key = basename .. "::" .. class_name .. "::" .. test_name
           id_lookup[key] = data.id
+          logger.debug("results.parse: registered lookup key: " .. key .. " -> " .. data.id)
+        else
+          logger.debug("results.parse: could not parse neotest ID: " .. tostring(data.id))
         end
       end
     end
+    logger.info("results.parse: processed " .. node_count .. " tree nodes, " .. vim.tbl_count(id_lookup) .. " test lookups")
   end
 
   local results = {}
   local tests = payload.tests or {}
+  logger.info("results.parse: processing " .. #tests .. " test results from JSON")
+
   for _, t in ipairs(tests) do
     -- Build the raw ID from JSON data
     local raw_id = t.file .. "::" .. t.class .. "::" .. t.name
@@ -88,18 +100,25 @@ M.parse = function(spec, result, tree)
       vim.notify("neotest-ruby-minitest: test without id", vim.log.levels.WARN)
       return {}
     end
+    logger.debug("results.parse: raw_id from JSON = " .. raw_id)
 
     -- Try to match against neotest position IDs using basename
     local id = raw_id
     if t.file and t.class and t.name then
       local basename = vim.fs.basename(t.file)
       local lookup_key = basename .. "::" .. t.class .. "::" .. t.name
+      logger.debug("results.parse: lookup_key = " .. lookup_key)
       if id_lookup[lookup_key] then
         id = id_lookup[lookup_key]
+        logger.debug("results.parse: MATCHED! using neotest ID = " .. id)
+      else
+        logger.debug("results.parse: NO MATCH, using raw_id")
       end
     end
 
     local status = classify_status(t)
+    logger.info("results.parse: test " .. t.name .. " status = " .. status .. ", id = " .. id)
+
     local long_msg = failure_message(t)
     local short_msg = (#long_msg > 0) and long_msg:sub(1, 200) or ""
 
@@ -113,6 +132,7 @@ M.parse = function(spec, result, tree)
     }
   end
 
+  logger.info("results.parse: returning " .. vim.tbl_count(results) .. " results")
   return results
 end
 
