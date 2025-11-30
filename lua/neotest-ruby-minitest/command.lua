@@ -48,7 +48,7 @@ function M.build(conf, args)
     error("neotest-ruby-minitest: unsupported node type: " .. tostring(location.type))
   end
   local plugin_rb = M.json_tap()
-  local env = vim.tbl_extend("force", {}, args.env or {})
+  local env = vim.tbl_extend("force", {}, conf.env or {}, args.env or {})
   local prev = env.RUBYOPT or vim.env.RUBYOPT or ""
   local inject = "-r" .. plugin_rb
   env.RUBYOPT = (prev ~= "" and (prev .. " " .. inject)) or inject

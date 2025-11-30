@@ -112,3 +112,58 @@ describe("Creates State Directory", function()
     assert.is_true(vim.fn.isdirectory(state_dir) == 1)
   end)
 end)
+
+describe("Environment Variables", function()
+  local test_file = "./tests/examples/test_classic.rb"
+  local find = function(filename, type)
+    local tree = positions.discover_positions(filename)
+    for _, node in tree:iter_nodes() do
+      local data = node:data()
+      if data and data.type == type then
+        return node
+      end
+    end
+  end
+
+  async.it("should include config env variables", function()
+    local unit = find(test_file, "test")
+    local actual = adapter.build(
+      { command = "ruby", env = { RAILS_ENV = "test", VERBOSE = "1" } },
+      { tree = unit }
+    )
+    assert.are.equal("test", actual.env.RAILS_ENV)
+    assert.are.equal("1", actual.env.VERBOSE)
+  end)
+
+  async.it("should merge args.env over config.env", function()
+    local unit = find(test_file, "test")
+    local actual = adapter.build(
+      { command = "ruby", env = { RAILS_ENV = "test", CONFIG_ONLY = "yes" } },
+      { tree = unit, env = { RAILS_ENV = "development", ARGS_ONLY = "yes" } }
+    )
+    -- args.env overrides config.env
+    assert.are.equal("development", actual.env.RAILS_ENV)
+    -- config.env values are preserved when not overridden
+    assert.are.equal("yes", actual.env.CONFIG_ONLY)
+    -- args.env values are included
+    assert.are.equal("yes", actual.env.ARGS_ONLY)
+  end)
+
+  async.it("should work with empty config env", function()
+    local unit = find(test_file, "test")
+    local actual = adapter.build(
+      { command = "ruby", env = {} },
+      { tree = unit, env = { FROM_ARGS = "value" } }
+    )
+    assert.are.equal("value", actual.env.FROM_ARGS)
+  end)
+
+  async.it("should work with nil config env", function()
+    local unit = find(test_file, "test")
+    local actual = adapter.build(
+      { command = "ruby" },
+      { tree = unit, env = { FROM_ARGS = "value" } }
+    )
+    assert.are.equal("value", actual.env.FROM_ARGS)
+  end)
+end)
