@@ -10,9 +10,9 @@ M.keep_output = false
 ---@async
 ---@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
----@param _ neotest.Tree
+---@param tree neotest.Tree
 ---@return table<string, neotest.Result>
-M.parse = function(spec, result, _)
+M.parse = function(spec, result, tree)
   local path = spec.context.json_path
   local success, output = pcall(lib.files.read, path)
   if not success then
@@ -59,13 +59,44 @@ M.parse = function(spec, result, _)
     return table.concat(parts, "\n\n")
   end
 
+  -- Build a lookup table from (basename::class::name) -> neotest position ID
+  -- This handles the case where Ruby's source_location returns a different path
+  -- than what Neotest uses (e.g., relative vs absolute paths)
+  local id_lookup = {}
+  if tree then
+    for _, node in tree:iter_nodes() do
+      local data = node:data()
+      if data and data.type == "test" and data.id then
+        -- Extract class and test name from the neotest ID
+        -- Format: /path/to/file.rb::ClassName::test_name
+        local file_path, class_name, test_name = data.id:match("^(.+)::([^:]+)::([^:]+)$")
+        if file_path and class_name and test_name then
+          local basename = vim.fs.basename(file_path)
+          local key = basename .. "::" .. class_name .. "::" .. test_name
+          id_lookup[key] = data.id
+        end
+      end
+    end
+  end
+
   local results = {}
   local tests = payload.tests or {}
   for _, t in ipairs(tests) do
-    local id = t.file .. "::" .. t.class .. "::" .. t.name
-    if not id then
+    -- Build the raw ID from JSON data
+    local raw_id = t.file .. "::" .. t.class .. "::" .. t.name
+    if not raw_id then
       vim.notify("neotest-ruby-minitest: test without id", vim.log.levels.WARN)
       return {}
+    end
+
+    -- Try to match against neotest position IDs using basename
+    local id = raw_id
+    if t.file and t.class and t.name then
+      local basename = vim.fs.basename(t.file)
+      local lookup_key = basename .. "::" .. t.class .. "::" .. t.name
+      if id_lookup[lookup_key] then
+        id = id_lookup[lookup_key]
+      end
     end
 
     local status = classify_status(t)

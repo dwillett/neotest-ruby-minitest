@@ -140,4 +140,48 @@ describe("results.parse", function()
       assert.are_equal("/test/factbase/terms/test_ordering.rb::TestOrdering::test_prev", id)
     end)
   end)
+
+  async.it("maps results to neotest position IDs when tree is provided", function()
+    utils.with_temp_dir(function(dir)
+      local json_path = dir .. "/results.json"
+      local from = utils.resource("json", "successful.json")
+      local to = path:new(json_path)
+      utils.copy(from, to)
+
+      -- Create a mock tree with a test node that has a different absolute path
+      -- but same basename/class/method as the JSON result
+      local absolute_path = "/home/user/myproject/test/factbase/terms/test_ordering.rb"
+      local expected_id = absolute_path .. "::TestOrdering::test_prev"
+      local mock_tree = {
+        iter_nodes = function()
+          local nodes = {
+            {
+              data = function()
+                return {
+                  type = "test",
+                  id = expected_id,
+                }
+              end
+            }
+          }
+          local i = 0
+          return function()
+            i = i + 1
+            if nodes[i] then
+              return i, nodes[i]
+            end
+          end
+        end
+      }
+
+      local spec = { context = { json_path = json_path } }
+      local result = { output = "/dev/null/raw.txt" }
+      local res = results.parse(spec, result, mock_tree)
+
+      assert.are_equal(1, vim.tbl_count(res))
+      local id, _ = next(res)
+      -- The ID should now be the absolute path from the tree, not the relative path from JSON
+      assert.are_equal(expected_id, id)
+    end)
+  end)
 end)
