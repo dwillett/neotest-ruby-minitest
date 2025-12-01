@@ -62,6 +62,26 @@ function M.build(conf, args)
     else
       error("neotest-ruby-minitest: test node missing name")
     end
+  elseif location.type == "namespace" then
+    table.insert(command, test_path)
+    -- Collect all namespace names (this class and nested classes)
+    local class_names = {}
+    for _, node in args.tree:iter_nodes() do
+      local data = node:data()
+      if data and data.type == "namespace" and data.name then
+        table.insert(class_names, data.name)
+      end
+    end
+    if #class_names > 0 then
+      -- Build regex pattern to match all test methods in these classes
+      -- Minitest method names follow pattern: ClassName#test_method_name
+      -- Pattern: /(Class1#|Class2#|Class3#)/
+      local pattern = "/(" .. table.concat(class_names, "#|") .. "#)/"
+      table.insert(command, "-n")
+      table.insert(command, pattern)
+    else
+      error("neotest-ruby-minitest: namespace node missing name")
+    end
   elseif location.type == "dir" then
     table.insert(command, "-e")
     table.insert(command, "ARGV.each { |f| require File.expand_path(f) }")
